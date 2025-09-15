@@ -1,10 +1,36 @@
 const express = require('express');
+const { body } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { handleValidationErrors } = require('../middleware/validation');
 const router = express.Router();
 
+// Validações para registro
+const validateRegistration = [
+  body('email')
+    .isEmail()
+    .withMessage('Must be a valid email')
+    .normalizeEmail(),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
+  handleValidationErrors
+];
+
+// Validações para login
+const validateLogin = [
+  body('email')
+    .isEmail()
+    .withMessage('Must be a valid email')
+    .normalizeEmail(),
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required'),
+  handleValidationErrors
+];
+
 // Registro de usuário
-router.post('/register', async (req, res) => {
+router.post('/register', validateRegistration, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -20,7 +46,11 @@ router.post('/register', async (req, res) => {
     // Gerar token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-    res.status(201).json({ token, user: { id: user.id, email: user.email } });
+    res.status(201).json({ 
+      message: 'User created successfully',
+      token, 
+      user: { id: user.id, email: user.email } 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
@@ -28,7 +58,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login de usuário
-router.post('/login', async (req, res) => {
+router.post('/login', validateLogin, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -47,7 +77,11 @@ router.post('/login', async (req, res) => {
     // Gerar token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-    res.json({ token, user: { id: user.id, email: user.email } });
+    res.json({ 
+      message: 'Login successful',
+      token, 
+      user: { id: user.id, email: user.email } 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
