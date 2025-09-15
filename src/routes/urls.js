@@ -1,28 +1,163 @@
 const express = require('express');
+const { body } = require('express-validator');
 const { ShortenedUrl, UrlAccess } = require('../models');
 const { shortenUrl } = require('../services/shortenerService');
 const auth = require('../middleware/auth');
+const { handleValidationErrors } = require('../middleware/validation');
 const router = express.Router();
 
-// Encurtar URL (público e autenticado)
-router.post('/shorten', auth.optional, async (req, res) => {
+// Validação para encurtamento de URL
+const validateShortenUrl = [
+  body('original_url')
+    .isURL()
+    .withMessage('Must be a valid URL'),
+  handleValidationErrors
+];
+
+// Validação para atualização de URL
+const validateUpdateUrl = [
+  body('original_url')
+    .isURL()
+    .withMessage('Must be a valid URL'),
+  handleValidationErrors
+];
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     ShortenedUrl:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *           description: ID da URL encurtada
+ *         original_url:
+ *           type: string
+ *           description: URL original
+ *         short_code:
+ *           type: string
+ *           description: Código curto (6 caracteres)
+ *         short_url:
+ *           type: string
+ *           description: URL encurtada completa
+ *         click_count:
+ *           type: integer
+ *           description: Número de cliques
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: Data de criação
+ *         updated_at:
+ *           type: string
+ *           format: date-time
+ *           description: Data de última atualização
+ *     ShortenUrlRequest:
+ *       type: object
+ *       required:
+ *         - original_url
+ *       properties:
+ *         original_url:
+ *           type: string
+ *           description: URL original para encurtar
+ *     ShortenUrlResponse:
+ *       type: object
+ *       properties:
+ *         message:
+ *           type: string
+ *         data:
+ *           $ref: '#/components/schemas/ShortenedUrl'
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: string
+ *           description: Mensagem de erro
+ *         details:
+ *           type: array
+ *           items:
+ *             type: object
+ *           description: Detalhes dos erros de validação
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * /api/urls/shorten:
+ *   post:
+ *     summary: Encurta uma URL
+ *     description: Endpoint para encurtar URLs. Funciona tanto para usuários autenticados quanto não autenticados.
+ *     tags: [URLs]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ShortenUrlRequest'
+ *     responses:
+ *       200:
+ *         description: URL encurtada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ShortenUrlResponse'
+ *       400:
+ *         description: Erro de validação
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.post('/shorten', auth.optional, validateShortenUrl, async (req, res) => {
   try {
     const { original_url } = req.body;
     const userId = req.user ? req.user.userId : null;
 
-    if (!original_url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
-
     const result = await shortenUrl(original_url, userId);
-    res.json(result);
+    res.json({
+      message: 'URL shortened successfully',
+      data: result
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Redirecionar e contabilizar acesso
+/**
+ * @swagger
+ * /{short_code}:
+ *   get:
+ *     summary: Redireciona para a URL original
+ *     description: Redireciona o usuário para a URL original e contabiliza o acesso.
+ *     tags: [URLs]
+ *     parameters:
+ *       - in: path
+ *         name: short_code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Código curto da URL
+ *     responses:
+ *       302:
+ *         description: Redirecionamento para a URL original
+ *       404:
+ *         description: URL não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
 router.get('/:short_code', async (req, res) => {
   try {
     const { short_code } = req.params;
@@ -54,7 +189,33 @@ router.get('/:short_code', async (req, res) => {
   }
 });
 
-// Listar URLs do usuário (autenticado)
+/**
+ * @swagger
+ * /api/urls:
+ *   get:
+ *     summary: Lista URLs do usuário
+ *     description: Retorna todas as URLs encurtadas pelo usuário autenticado.
+ *     tags: [URLs]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lista de URLs do usuário
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/ShortenedUrl'
+ *       401:
+ *         description: Não autorizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
 router.get('/', auth.required, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -70,8 +231,53 @@ router.get('/', auth.required, async (req, res) => {
   }
 });
 
-// Atualizar URL (autenticado)
-router.put('/:id', auth.required, async (req, res) => {
+/**
+ * @swagger
+ * /api/urls/{id}:
+ *   put:
+ *     summary: Atualiza uma URL
+ *     description: Atualiza a URL original de uma URL encurtada.
+ *     tags: [URLs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da URL encurtada
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ShortenUrlRequest'
+ *     responses:
+ *       200:
+ *         description: URL atualizada com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ShortenedUrl'
+ *       400:
+ *         description: Erro de validação
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Não autorizado
+ *       404:
+ *         description: URL não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
+router.put('/:id', auth.required, validateUpdateUrl, async (req, res) => {
   try {
     const { id } = req.params;
     const { original_url } = req.body;
@@ -95,7 +301,43 @@ router.put('/:id', auth.required, async (req, res) => {
   }
 });
 
-// Deletar URL (soft delete, autenticado)
+/**
+ * @swagger
+ * /api/urls/{id}:
+ *   delete:
+ *     summary: Exclui uma URL
+ *     description: Exclui logicamente uma URL encurtada (soft delete).
+ *     tags: [URLs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID da URL encurtada
+ *     responses:
+ *       200:
+ *         description: URL excluída com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       401:
+ *         description: Não autorizado
+ *       404:
+ *         description: URL não encontrada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
 router.delete('/:id', auth.required, async (req, res) => {
   try {
     const { id } = req.params;
