@@ -29,7 +29,83 @@ const validateLogin = [
   handleValidationErrors
 ];
 
-// Registro de usuário
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     UserAuth:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           example: user@example.com
+ *         password:
+ *           type: string
+ *           format: password
+ *           example: password123
+ *     AuthResponse:
+ *       type: object
+ *       properties:
+ *         message:
+ *           type: string
+ *         token:
+ *           type: string
+ *         user:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *             email:
+ *               type: string
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Registrar um novo usuário
+ *     description: Cria uma nova conta de usuário no sistema
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UserAuth'
+ *           example:
+ *             email: user@example.com
+ *             password: password123
+ *     responses:
+ *       201:
+ *         description: Usuário criado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *             example:
+ *               message: User created successfully
+ *               token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *               user:
+ *                 id: 1
+ *                 email: user@example.com
+ *       400:
+ *         description: Erro de validação ou usuário já existe
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
 router.post('/register', validateRegistration, async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -57,7 +133,44 @@ router.post('/register', validateRegistration, async (req, res) => {
   }
 });
 
-// Login de usuário
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Autenticar usuário
+ *     description: Realiza login de um usuário existente
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UserAuth'
+ *           example:
+ *             email: user@example.com
+ *             password: password123
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *             example:
+ *               message: Login successful
+ *               token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *               user:
+ *                 id: 1
+ *                 email: user@example.com
+ *       401:
+ *         description: Credenciais inválidas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Erro interno do servidor
+ */
 router.post('/login', validateLogin, async (req, res) => {
   try {
     const { email, password } = req.body;
