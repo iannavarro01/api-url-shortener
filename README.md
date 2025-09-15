@@ -110,9 +110,11 @@ npm run test:coverage
 
 Para executar o projeto com Docker:
 
-1. Configure as variáveis de ambiente (opcional):
- cp .env.example .env
-Edite o arquivo .env se necessário
+1. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+```
+Edite o arquivo .env com suas configurações (por exemplo, POSTGRES_PASSWORD, JWT_SECRET).
 
 2. Execute:
 ```bash
