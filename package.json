@@ -13,8 +13,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
-  }
-,
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/iannavarro01/api-url-shortener.git"
@@ -31,6 +30,7 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
